@@ -1,0 +1,247 @@
+@startuml Sistema_Orcamento_RM
+
+' ============================================
+' SISTEMA DE ORÇAMENTO DE ALUGUEL - IMOBILIÁRIA R.M
+' Diagrama de Classes - Modelagem Estática
+' ============================================
+
+' Configurações de estilo
+skinparam classAttributeIconSize 0
+skinparam classFontSize 14
+skinparam classFontColor #333333
+skinparam classBackgroundColor #FEFECE
+skinparam classBorderColor #A80036
+skinparam arrowColor #555555
+skinparam packageBackgroundColor #E8E8E8
+skinparam noteBackgroundColor #FFFFCC
+skinparam noteBorderColor #AAAAAA
+
+' ============================================
+' PACOTE: Modelo de Domínio
+' ============================================
+package "Modelo de Domínio" {
+
+    ' ----------------------------------------
+    ' Interface Calculavel
+    ' ----------------------------------------
+    interface Calculavel {
+        + calcular(): float
+    }
+
+    ' ----------------------------------------
+    ' Classe Abstrata Imovel
+    ' ----------------------------------------
+    abstract class Imovel {
+        - id: int
+        - tipo: str
+        - valor_base: float
+        - quantidade_quartos: int
+        - quantidade_vagas: int
+        --
+        + __init__(id: int, tipo: str, valor_base: float, quartos: int, vagas: int)
+        + {abstract} calcular_aluguel(): float
+        + {abstract} calcular_vagas(): float
+        + {abstract} pode_ter_quarto_extra(): bool
+        + get_id(): int
+        + get_tipo(): str
+        + get_valor_base(): float
+        + get_quantidade_quartos(): int
+        + get_quantidade_vagas(): int
+    }
+
+    ' ----------------------------------------
+    ' Classe Apartamento
+    ' ----------------------------------------
+    class Apartamento {
+        - VALOR_QUARTO_EXTRA: float = 200.00
+        - VALOR_VAGA: float = 300.00
+        --
+        + __init__(id: int, quartos: int = 1, vagas: int = 0)
+        + calcular_aluguel(): float
+        + calcular_vagas(): float
+        + pode_ter_quarto_extra(): bool
+        + calcular_desconto(possui_criancas: bool): float
+    }
+
+    ' ----------------------------------------
+    ' Classe Casa
+    ' ----------------------------------------
+    class Casa {
+        - VALOR_QUARTO_EXTRA: float = 250.00
+        - VALOR_VAGA: float = 300.00
+        --
+        + __init__(id: int, quartos: int = 1, vagas: int = 0)
+        + calcular_aluguel(): float
+        + calcular_vagas(): float
+        + pode_ter_quarto_extra(): bool
+    }
+
+    ' ----------------------------------------
+    ' Classe Estudio
+    ' ----------------------------------------
+    class Estudio {
+        - VALOR_VAGAS_PRIMEIRAS: float = 250.00
+        - VALOR_VAGA_ADICIONAL: float = 60.00
+        --
+        + __init__(id: int, vagas: int = 0)
+        + calcular_aluguel(): float
+        + calcular_vagas(): float
+        + pode_ter_quarto_extra(): bool
+    }
+}
+
+' ============================================
+' PACOTE: Entidades de Negócio
+' ============================================
+package "Entidades de Negócio" {
+
+    ' ----------------------------------------
+    ' Classe Cliente
+    ' ----------------------------------------
+    class Cliente {
+        - id: int
+        - nome: str
+        - possui_criancas: bool
+        --
+        + __init__(id: int, nome: str, possui_criancas: bool = False)
+        + eh_elegivel_desconto(): bool
+        + get_id(): int
+        + get_nome(): str
+        + get_possui_criancas(): bool
+    }
+
+    ' ----------------------------------------
+    ' Classe Orcamento
+    ' ----------------------------------------
+    class Orcamento {
+        - id: int
+        - cliente: Cliente
+        - imovel: Imovel
+        - parcelas_contrato: int
+        - valor_aluguel: float
+        - valor_desconto: float
+        - valor_aluguel_final: float
+        - valor_parcela_contrato: float
+        - valor_total: float
+        --
+        + __init__(id: int, cliente: Cliente, imovel: Imovel, parcelas: int)
+        - _calcular_orcamento(): void
+        + calcular_orcamento(): dict
+        + exibir_resumo(): void
+        + get_valor_aluguel_final(): float
+        + get_valor_parcela_contrato(): float
+        + get_valor_total(): float
+    }
+
+    ' ----------------------------------------
+    ' Classe Contrato
+    ' ----------------------------------------
+    class Contrato {
+        - {static} VALOR_TOTAL: float = 2000.00
+        - {static} MAX_PARCELAS: int = 5
+        - orcamento: Orcamento
+        - parcelas: int
+        - valor_parcela: float
+        --
+        + __init__(orcamento: Orcamento, parcelas: int)
+        - _validar_e_calcular(): void
+        + validar_parcelas(): bool
+        + calcular_parcela(): float
+        + get_parcelas(): int
+        + get_valor_total(): float
+    }
+
+    ' ----------------------------------------
+    ' Classe ProjecaoMensal
+    ' ----------------------------------------
+    class ProjecaoMensal {
+        - orcamento: Orcamento
+        - contrato: Contrato
+        - meses: list[dict]
+        --
+        + __init__(orcamento: Orcamento, contrato: Contrato)
+        - _gerar_projecao(): void
+        + gerar_projecao(): list[dict]
+        + exportar_csv(nome_arquivo: str): void
+    }
+}
+
+' ============================================
+' RELACIONAMENTOS
+' ============================================
+
+' Herança: Imovel é pai de Apartamento, Casa e Estudio
+Imovel <|-- Apartamento : herda
+Imovel <|-- Casa : herda
+Imovel <|-- Estudio : herda
+
+' Implementação: Imovel implementa Calculavel
+Imovel ..|> Calculavel : implementa
+
+' Associação: Orcamento usa Cliente (1 para 1)
+Orcamento "1" --> "1" Cliente : utiliza
+
+' Associação: Orcamento usa Imovel (1 para 1)
+Orcamento "1" --> "1" Imovel : referencia
+
+' Composição: Contrato é composto por Orcamento
+Orcamento "1" *-- "1" Contrato : contém
+
+' Composição: ProjecaoMensal é composta por Orcamento e Contrato
+ProjecaoMensal "1" *-- "1" Orcamento : utiliza
+ProjecaoMensal "1" *-- "1" Contrato : utiliza
+
+' ============================================
+' NOTAS EXPLICATIVAS
+' ============================================
+
+note bottom of Imovel
+  Classe abstrata base para todos
+  os tipos de imóveis da imobiliária.
+  Métodos abstratos definem comportamento
+  polimórfico para cálculos.
+end note
+
+note bottom of Apartamento
+  Regras de negócio:
+  - Valor base: R$ 700,00
+  - Quarto extra: +R$ 200,00
+  - Vaga garagem: R$ 300,00
+  - Desconto: 5% (sem crianças)
+end note
+
+note bottom of Casa
+  Regras de negócio:
+  - Valor base: R$ 900,00
+  - Quarto extra: +R$ 250,00
+  - Vaga garagem: R$ 300,00
+  - Sem desconto
+end note
+
+note bottom of Estudio
+  Regras de negócio:
+  - Valor base: R$ 1.200,00
+  - Sem quarto extra
+  - Vagas: R$ 250 (2 primeiras)
+  - Adicionais: R$ 60 cada
+  - Sem desconto
+end note
+
+note right of Contrato
+  Valor fixo: R$ 2.000,00
+  Máximo: 5 parcelas
+  Cálculo: 2000 / parcelas
+end note
+
+note bottom of ProjecaoMensal
+  Gera arquivo CSV com
+  12 meses de projeção
+  financeira completa.
+end note
+
+' ============================================
+' TÍTULO DO DIAGRAMA
+' ============================================
+title Diagrama de Classes - Sistema de Orçamento de Aluguel R.M\nImobiliária R.M - Modelagem Estática (POO)
+
+@enduml
