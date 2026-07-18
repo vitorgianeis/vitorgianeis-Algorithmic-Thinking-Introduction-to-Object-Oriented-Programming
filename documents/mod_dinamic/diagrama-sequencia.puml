@@ -1,0 +1,155 @@
+@startuml diagrama-sequencia-arquitetura-camadas
+!theme plain
+
+title Diagrama de Sequência - Arquitetura em Camadas\nSistema de Orçamento de Aluguel R.M
+
+skinparam backgroundColor #FEFEFE
+skinparam sequenceArrowThickness 2
+skinparam sequenceLifeLineBorderColor #666666
+skinparam sequenceParticipantBorderColor #333333
+skinparam sequenceParticipantBackgroundColor #E8E8E8
+skinparam sequenceParticipantFontSize 12
+skinparam sequenceMessageFontSize 11
+
+' ==========================================
+' CAMADAS DA ARQUITETURA
+' ==========================================
+
+box "Camada de Apresentação (CLI)" #LightBlue
+    participant "Interface\nUsuario" as UI
+end box
+
+box "Camada de Controle" #LightGreen
+    participant "Orcamento\n(Controller)" as ORC
+end box
+
+box "Camada de Negocio" #LightYellow
+    participant "Contrato\n(Service)" as CONT
+    participant "ProjecaoMensal\n(Service)" as PROJ
+end box
+
+box "Camada de Dominio (Modelo)" #LightCoral
+    participant "Imovel\n(Apartamento/\nCasa/Estudio)" as IMV
+    participant "Cliente" as CLI
+end box
+
+' ==========================================
+' UC01: GERAR ORCAMENTO DE ALUGUEL
+' ==========================================
+
+== UC01: Gerar Orcamento de Aluguel ==
+
+UI -> UI: 1: Solicitar dados do imóvel\n(tipo, quartos, vagas, crianças)
+activate UI
+
+UI -> ORC: 2: criar_orcamento(tipo, quartos, vagas,\npossui_criancas)
+activate ORC
+
+ORC -> IMV: 3: new(tipo, quartos, vagas)
+activate IMV
+IMV --> ORC: imovel criado
+deactivate IMV
+
+ORC -> CLI: 4: new(nome, possui_criancas)
+activate CLI
+CLI --> ORC: cliente criado
+deactivate CLI
+
+ORC -> IMV: 5: calcular_aluguel()
+activate IMV
+IMV -> IMV: 5.1: valor_base + (quartos_extra * valor)
+IMV -> IMV: 5.2: + (vagas * valor_vaga)
+IMV --> ORC: valor_aluguel
+deactivate IMV
+
+ORC -> CLI: 6: eh_elegivel_desconto()
+activate CLI
+CLI --> ORC: elegivel (bool)
+deactivate CLI
+
+opt Se elegivel para desconto
+    ORC -> ORC: 6.1: desconto = valor * 0.05
+end
+
+ORC --> UI: 7: orcamento_completo\n(aluguel, desconto, valor_mensal)
+deactivate ORC
+
+UI -> UI: 8: Exibir resumo do orçamento
+deactivate UI
+
+' ==========================================
+' UC02: CALCULAR PARCELAMENTO DO CONTRATO
+' ==========================================
+
+== UC02: Calcular Parcelamento do Contrato ==
+
+UI -> ORC: 1: definir_parcelas(quantidade)
+activate ORC
+
+ORC -> CONT: 2: new(valor_total=2000, parcelas)
+activate CONT
+CONT -> CONT: 3: validar_parcelas(parcelas)
+note right
+    Valida se parcelas
+    está entre 1 e 5
+end note
+
+CONT -> CONT: 4: calcular_parcela()
+CONT --> ORC: valor_parcela
+deactivate CONT
+
+ORC --> UI: 5: parcela_calculada\n(valor_parcela, num_parcelas)
+deactivate ORC
+
+UI -> UI: 6: Exibir valor da parcela
+deactivate UI
+
+' ==========================================
+' UC03: EXPORTAR ORCAMENTO EM CSV
+' ==========================================
+
+== UC03: Exportar Orcamento em CSV ==
+
+UI -> ORC: 1: gerar_projecao()
+activate ORC
+
+ORC -> PROJ: 2: new(orcamento, contrato)
+activate PROJ
+
+PROJ -> PROJ: 3: gerar_projecao_12_meses()
+note right
+    Para cada mês (1-12):
+    - valor_aluguel
+    - parcela_contrato (se <= num_parcelas)
+    - valor_total_mensal
+end note
+
+PROJ -> PROJ: 4: exportar_csv(nome_arquivo)
+note right
+    Gera arquivo .csv
+    com cabeçalho e 12 linhas
+end note
+
+PROJ --> ORC: 5: arquivo_gerado (sucesso)
+deactivate PROJ
+
+ORC --> UI: 6: confirmacao_exportacao\n(caminho_arquivo)
+deactivate ORC
+
+UI -> UI: 7: Exibir mensagem de sucesso
+deactivate UI
+
+' ==========================================
+' FLUXO ALTERNATIVO - ERROS
+' ==========================================
+
+== Tratamento de Exceções ==
+
+UI -> ORC: criar_orcamento(dados_invalidos)
+activate ORC
+ORC -> ORC: validar_entradas()
+ORC --> UI: erro_validacao(mensagem)
+deactivate ORC
+UI -> UI: Exibir mensagem de erro
+
+@enduml
