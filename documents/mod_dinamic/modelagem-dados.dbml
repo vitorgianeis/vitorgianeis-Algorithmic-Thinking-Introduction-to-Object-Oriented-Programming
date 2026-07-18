@@ -1,0 +1,144 @@
+// DBML - Modelagem de Dados
+// Sistema de Orçamento de Aluguel R.M
+// Docs: https://dbml.dbdiagram.io/docs
+
+// ==========================================
+// TABELAS
+// ==========================================
+
+Table imoveis {
+  id integer [primary key, increment]
+  tipo varchar [note: 'Tipo do imóvel: A (Apartamento), C (Casa), E (Estúdio)']
+  valor_base decimal(10,2) [note: 'Valor base do aluguel conforme tipo']
+  quantidade_quartos integer [default: 1, note: 'Quantidade de quartos (1-4)']
+  quantidade_vagas integer [default: 0, note: 'Quantidade de vagas de garagem']
+  endereco varchar [note: 'Endereço completo do imóvel']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+}
+
+Table clientes {
+  id integer [primary key, increment]
+  nome varchar [not null, note: 'Nome completo do cliente']
+  cpf varchar [unique, note: 'CPF do cliente (XXX.XXX.XXX-XX)']
+  telefone varchar [note: 'Telefone de contato']
+  email varchar [note: 'E-mail do cliente']
+  possui_criancas boolean [default: false, note: 'Possui crianças? (afeta desconto)']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+}
+
+Table orcamentos {
+  id integer [primary key, increment]
+  cliente_id integer [not null, ref: > clientes.id]
+  imovel_id integer [not null, ref: > imoveis.id]
+  valor_aluguel_base decimal(10,2) [note: 'Valor base do imóvel']
+  valor_quartos_extras decimal(10,2) [default: 0, note: 'Total adicionais por quartos']
+  valor_vagas decimal(10,2) [default: 0, note: 'Total adicionais por vagas']
+  valor_desconto decimal(10,2) [default: 0, note: 'Valor do desconto aplicado (5%)']
+  valor_aluguel_final decimal(10,2) [note: 'Aluguel final = base + extras - desconto']
+  percentual_desconto decimal(5,2) [default: 0, note: 'Percentual de desconto aplicado']
+  status varchar [default: 'RASCUNHO', note: 'Status: RASCUNHO, FINALIZADO, CANCELADO']
+  observacoes text [note: 'Observações adicionais']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+}
+
+Table contratos {
+  id integer [primary key, increment]
+  orcamento_id integer [not null, ref: > orcamentos.id]
+  valor_total decimal(10,2) [default: 2000.00, note: 'Valor fixo do contrato']
+  quantidade_parcelas integer [not null, note: 'Número de parcelas (1-5)']
+  valor_parcela decimal(10,2) [note: 'Valor de cada parcela']
+  data_inicio date [not null, note: 'Data de início do contrato']
+  data_fim date [note: 'Data de término do contrato']
+  status varchar [default: 'ATIVO', note: 'Status: ATIVO, FINALIZADO, CANCELADO']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+}
+
+Table projecoes_mensais {
+  id integer [primary key, increment]
+  orcamento_id integer [not null, ref: > orcamentos.id]
+  contrato_id integer [ref: > contratos.id]
+  numero_mes integer [not null, note: 'Número do mês (1-12)']
+  valor_aluguel decimal(10,2) [note: 'Valor do aluguel no mês']
+  valor_parcela_contrato decimal(10,2) [default: 0, note: 'Parcela do contrato no mês']
+  valor_total_mes decimal(10,2) [note: 'Total do mês = aluguel + parcela']
+  created_at timestamp [default: `now()`]
+}
+
+// ==========================================
+// RELACIONAMENTOS
+// ==========================================
+
+// Um cliente pode ter vários orçamentos
+Ref orcamentos_cliente: orcamentos.cliente_id > clientes.id
+
+// Um imóvel pode estar em vários orçamentos
+Ref orcamentos_imovel: orcamentos.imovel_id > imoveis.id
+
+// Um orçamento tem um contrato
+Ref contrato_orcamento: contratos.orcamento_id > orcamentos.id
+
+// Um orçamento pode ter várias projeções mensais
+Ref projecoes_orcamento: projecoes_mensais.orcamento_id > orcamentos.id
+
+// Uma projeção mensal pode estar associada a um contrato
+Ref projecoes_contrato: projecoes_mensais.contrato_id > contratos.id
+
+// ==========================================
+// ÍNDICES
+// ==========================================
+
+Index idx_orcamentos_cliente on orcamentos(cliente_id)
+Index idx_orcamentos_imovel on orcamentos(imovel_id)
+Index idx_contratos_orcamento on contratos(orcamento_id)
+Index idx_projecoes_orcamento on projecoes_mensais(orcamento_id)
+Index idx_imoveis_tipo on imoveis(tipo)
+
+// ==========================================
+// DADOS DE EXEMPLO
+// ==========================================
+
+Records imoveis(id, tipo, valor_base, quantidade_quartos, quantidade_vagas, endereco) {
+  1, 'A', 700.00, 1, 0, 'Rua das Flores, 100 - Centro'
+  2, 'A', 700.00, 2, 1, 'Av. Brasil, 500 - Jardins'
+  3, 'C', 900.00, 2, 2, 'Rua dos Ipês, 200 - Villa Verde'
+  4, 'E', 1200.00, 1, 4, 'Rua Principal, 300 - Centro'
+  5, 'A', 700.00, 3, 2, 'Alameda Santos, 1500 - Jardins'
+}
+
+Records clientes(id, nome, cpf, telefone, email, possui_criancas) {
+  1, 'Maria Silva', '123.456.789-00', '(11) 99999-1234', 'maria@email.com', false
+  2, 'João Oliveira', '987.654.321-00', '(11) 98888-5678', 'joao@email.com', true
+  3, 'Ana Santos', '456.789.123-00', '(11) 97777-9012', 'ana@email.com', false
+  4, 'Pedro Costa', '321.654.987-00', '(11) 96666-3456', 'pedro@email.com', true
+  5, 'Lucia Ferreira', '789.123.456-00', '(11) 95555-7890', 'lucia@email.com', false
+}
+
+Records orcamentos(id, cliente_id, imovel_id, valor_aluguel_base, valor_quartos_extras, valor_vagas, valor_desconto, valor_aluguel_final, percentual_desconto, status) {
+  1, 1, 1, 700.00, 0.00, 0.00, 0.00, 700.00, 0.00, 'FINALIZADO'
+  2, 2, 2, 700.00, 200.00, 300.00, 60.00, 1140.00, 5.00, 'FINALIZADO'
+  3, 3, 3, 900.00, 250.00, 600.00, 0.00, 1750.00, 0.00, 'FINALIZADO'
+  4, 5, 4, 1200.00, 0.00, 370.00, 0.00, 1570.00, 0.00, 'RASCUNHO'
+}
+
+Records contratos(id, orcamento_id, valor_total, quantidade_parcelas, valor_parcela, data_inicio, status) {
+  1, 1, 2000.00, 3, 666.67, '2026-01-01', 'ATIVO'
+  2, 2, 2000.00, 5, 400.00, '2026-02-01', 'ATIVO'
+  3, 3, 2000.00, 4, 500.00, '2026-03-01', 'ATIVO'
+}
+
+Records projecoes_mensais(id, orcamento_id, contrato_id, numero_mes, valor_aluguel, valor_parcela_contrato, valor_total_mes) {
+  1, 1, 1, 1, 700.00, 666.67, 1366.67
+  2, 1, 1, 2, 700.00, 666.67, 1366.67
+  3, 1, 1, 3, 700.00, 666.67, 1366.67
+  4, 1, 1, 4, 700.00, 0.00, 700.00
+  5, 2, 2, 1, 1140.00, 400.00, 1540.00
+  6, 2, 2, 2, 1140.00, 400.00, 1540.00
+  7, 2, 2, 3, 1140.00, 400.00, 1540.00
+  8, 2, 2, 4, 1140.00, 400.00, 1540.00
+  9, 2, 2, 5, 1140.00, 400.00, 1540.00
+  10, 2, 2, 6, 1140.00, 0.00, 1140.00
+}
